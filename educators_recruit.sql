@@ -4,9 +4,9 @@
 /*
     Clean up previous run (if any)
 */
-IF OBJECT_ID('dbo.EducatorPlacement', 'U') IS NOT NULL
+IF OBJECT_ID('dbo.Educator', 'U') IS NOT NULL
 BEGIN
-    DROP TABLE dbo.EducatorPlacement;
+    DROP TABLE dbo.Educator;
 END;
 GO
 
@@ -14,7 +14,7 @@ GO
     Table definition capturing educator demographics, education background,
     and placement lifecycle with the recruiting company.
 */
-CREATE TABLE dbo.EducatorPlacement
+CREATE TABLE dbo.Educator
 (
     EducatorID        INT            IDENTITY(1, 1) PRIMARY KEY,
     FirstName         NVARCHAR(50)   NOT NULL,
@@ -27,15 +27,26 @@ CREATE TABLE dbo.EducatorPlacement
     DateContacted     DATE           NOT NULL,
     SchoolPlaced      NVARCHAR(100)  NULL,
     DatePlaced        DATE           NULL,
-    CONSTRAINT CK_EducatorPlacement_DatePlaced_AfterContact CHECK
-        (DatePlaced IS NULL OR DatePlaced >= DateContacted)
+    CONSTRAINT CK_Educator_DatePlaced_AfterContact CHECK
+        (DatePlaced IS NULL OR DatePlaced >= DateContacted),
+    CONSTRAINT CK_Educator_Gender CHECK
+        (Gender IN (N'female', N'male')),
+    CONSTRAINT CK_Educator_DiscoveryChannel CHECK
+        (DiscoveryChannel IN (N'magazine', N'newspaper', N'social media', N'social media site', N'word of mouth')),
+    CONSTRAINT CK_Educator_ContactedAfterFounding CHECK
+        (DateContacted >= '2017-02-17'),
+    CONSTRAINT CK_Educator_ContactedAfterBirth CHECK
+        (DateContacted >= DateOfBirth),
+    CONSTRAINT CK_Educator_PlacementConsistency CHECK
+        ((SchoolPlaced IS NULL AND DatePlaced IS NULL)
+         OR (SchoolPlaced IS NOT NULL AND DatePlaced IS NOT NULL))
 );
 GO
 
 /*
     Sample data provided by the business owner.
 */
-INSERT INTO dbo.EducatorPlacement
+INSERT INTO dbo.Educator
     (FirstName, LastName, DateOfBirth, Gender, CollegeAttended,
      DegreeTitle, DiscoveryChannel, DateContacted, SchoolPlaced, DatePlaced)
 VALUES
@@ -55,7 +66,7 @@ GO
 SELECT
     CollegeAttended,
     COUNT(*) AS PlacedWithin14Days
-FROM dbo.EducatorPlacement
+FROM dbo.Educator
 WHERE
     DatePlaced IS NOT NULL
     AND DATEDIFF(DAY, DateContacted, DatePlaced) <= 14
@@ -69,7 +80,7 @@ GO
 SELECT
     Gender,
     COUNT(*) AS PlacedEducators
-FROM dbo.EducatorPlacement
+FROM dbo.Educator
 WHERE DatePlaced IS NOT NULL
 GROUP BY Gender;
 GO
@@ -82,7 +93,7 @@ GO
 -- Overall average contacts per day
 SELECT
     CAST(COUNT(*) AS DECIMAL(10, 2)) / NULLIF(COUNT(DISTINCT DateContacted), 0) AS AvgContactsPerDay
-FROM dbo.EducatorPlacement;
+FROM dbo.Educator;
 GO
 
 -- Average contacts per day for each discovery channel
@@ -92,7 +103,7 @@ WITH ChannelActivity AS
         DiscoveryChannel,
         COUNT(*) AS TotalContacts,
         COUNT(DISTINCT DateContacted) AS ActiveDays
-    FROM dbo.EducatorPlacement
+    FROM dbo.Educator
     GROUP BY DiscoveryChannel
 )
 SELECT
@@ -109,7 +120,7 @@ GO
 */
 SELECT
     CAST(COUNT(*) AS DECIMAL(10, 2)) / NULLIF(COUNT(DISTINCT DatePlaced), 0) AS AvgPlacementsPerDay
-FROM dbo.EducatorPlacement
+FROM dbo.Educator
 WHERE DatePlaced IS NOT NULL;
 GO
 
@@ -120,7 +131,7 @@ SELECT
     DegreeTitle,
     DatePlaced,
     COUNT(*) AS EducatorsPlaced
-FROM dbo.EducatorPlacement
+FROM dbo.Educator
 WHERE DatePlaced IS NOT NULL
 GROUP BY DegreeTitle, DatePlaced
 ORDER BY DegreeTitle, DatePlaced;
@@ -137,6 +148,6 @@ SELECT
         - CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, DateOfBirth, CAST(GETDATE() AS DATE)), DateOfBirth) > CAST(GETDATE() AS DATE)
                THEN 1 ELSE 0 END AS Age,
     DegreeTitle
-FROM dbo.EducatorPlacement
+FROM dbo.Educator
 ORDER BY LastName, FirstName;
 GO
